@@ -38,7 +38,8 @@ $ npm install
 $ npm run start
 
 # watch mode
-$ npm run start:dev
+$ npm run start:auth-page:dev
+$ npm run start:microservice:dev
 
 # production mode
 $ npm run start:prod
