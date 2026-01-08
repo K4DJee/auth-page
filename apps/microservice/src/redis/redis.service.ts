@@ -9,13 +9,13 @@ export class RedisService {
         return Math.floor(100000 + Math.random() * 90000).toString();
     }
 
-    async saveOtp(identifier: string, otp: string, ttlSeconds = 300): Promise<void>{
-        const key = `otp:${identifier}`;
+    async saveOtp(identifier: string, otpName: string, otp: string, ttlSeconds = 300): Promise<void>{
+        const key = `${otpName}:${identifier}`;
         await this.redis.set(key, otp, {EX: ttlSeconds});//Сохранение OTP с автоматическим удалением, ttl - 5 мин
     }
 
-    async verifyAndConsumeOtp(identifier: string, otp: string): Promise<boolean>{
-        const key = `otp:${identifier}`;
+    async verifyAndConsumeOtp(identifier: string, otpName: string,  otp: string): Promise<boolean>{
+        const key = `${otpName}:${identifier}`;
         const storedOtp = await this.redis.get(key);
 
         if(storedOtp === otp){
@@ -26,8 +26,24 @@ export class RedisService {
         return false;
     }
 
-    async exists(identifier: string): Promise<boolean>{
-        const key = `otp:${identifier}`;
+    async exists(identifier: string, otpName: string): Promise<boolean>{
+        const key = `${otpName}:${identifier}`;
         return (await this.redis.exists(key)) === 1;
+    }
+
+    async saveResetToken(identifier: string, resetTokenName: string, resetToken: string, ttlSeconds = 900): Promise<void>{
+        const key = `${resetTokenName}:${identifier}`;
+        await this.redis.set(key, resetToken, {EX: ttlSeconds});
+    }
+
+    async verifyAndConsumeResetToken(identifier: string, resetTokenName: string, resetToken: string): Promise<boolean>{
+        const key = `${resetTokenName}:${identifier}`;
+        const storedResetToken = await this.redis.get(key);
+        if(storedResetToken == resetToken){
+            await this.redis.del(key);
+            return true;
+        }
+
+        return false;
     }
 }

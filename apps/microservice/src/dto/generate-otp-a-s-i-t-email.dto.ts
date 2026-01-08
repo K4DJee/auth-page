@@ -19,4 +19,8 @@ export class generateOtpASITEmail{
     @IsString()
     @IsNotEmpty()
     subject: string
+
+    @IsString()
+    @IsNotEmpty()
+    otpName: string
 }

@@ -2,6 +2,8 @@ import { Controller, Get } from '@nestjs/common';
 import { MicroserviceService } from './microservice.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { generateOtpASITEmail } from './dto/generate-otp-a-s-i-t-email.dto';
+import { VerifyOtpResetToken } from './dto/verify-otp-reset-token.dto';
+import { VerifyResetToken } from './dto/verify-reset-token.dto';
 
 @Controller()
 export class MicroserviceController {
@@ -13,12 +15,12 @@ export class MicroserviceController {
   }
 
   @MessagePattern({cmd: 'verify-otp'})
-  async verifyOtp(){
-
+  async verifyOtp(@Payload() dto:VerifyOtpResetToken){
+    return await this.microserviceService.verifyOtpAndGenResetToken(dto);
   }
 
   @MessagePattern({cmd: 'verify-reset-token'})
-  async verifyResetToken(){
-    
+  async verifyResetToken(@Payload() dto: VerifyResetToken){
+      return await this.microserviceService.verifyResetToken(dto);
   }
 }

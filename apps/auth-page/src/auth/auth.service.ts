@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { registerDto } from './dto/register.dto';
 import * as bcrypt from 'bcrypt';
 import { jwtConstants } from './constants';
@@ -9,6 +9,11 @@ import { LoginDto } from './dto/login.dto';
 import { DatabaseService } from '../database/database.service';
 import { ClientProxy } from '@nestjs/microservices';
 import { generateOtpASITEmail } from './dto/generate-otp-a-s-i-t-email.dto';
+import { FindUserByEmailDto } from './dto/find-user-by-email.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { verifyOtpResetPassword } from './dto/verify-otp-reset-token.dto';
+import { VerifyResetTokenChangePass2Dto } from './dto/verify-reset-token-change-pass2.dto';
+import { VerifyResetTokenChangeEmail2Dto } from './dto/verify-reset-token-change-email2.dto.';
 
 
 @Injectable()
@@ -183,5 +188,110 @@ export class AuthService implements OnModuleInit {
       console.error('❌ Microservice error:', error);
       return error;
     }
+  }
+
+  async findUserByEmail(dto:FindUserByEmailDto){
+    const user = await this.dbService.user.findUnique({
+      where: {email: dto.email},
+      select:{
+        id: true,
+        email: true,
+        firstName: true,
+
+      }
+    });
+
+    if(!user){
+      throw new NotFoundException("Пользователь не найден");
+    }
+
+    return user;
+  }
+
+  async verifyOtpAndGenResetToken(dto:verifyOtpResetPassword){
+    try {
+      const response = await this.microserviceClient
+        .send({cmd:'verify-otp'}, dto)
+        .toPromise();
+      
+      console.log('✅ Microservice response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Microservice error:', error);
+      return error;
+    }
+  }
+
+  async verifyResetToken(identifier: string, resetToken: string): Promise<boolean>{
+    try {
+      const response = await this.microserviceClient
+        .send({cmd:'verify-reset-token'}, {identifier, resetToken})
+        .toPromise();
+      
+      console.log('✅ Microservice response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Microservice error:', error);
+      return error;
+    }
+  }
+
+  async verifyResetTokenAndChangeUserPassword(dto: VerifyResetTokenChangePass2Dto){
+    const isValid = await this.verifyResetToken(dto.identifier, dto.resetToken);
+    if(!isValid){
+      throw new BadRequestException("Вы ввели неправильный resetToken");
+    }
+
+    const updatedUser = await this.changeUserPassword(parseInt(dto.identifier),dto.newPassword);
+    if(!updatedUser){
+      throw new InternalServerErrorException("Ошибка смены пароля");
+    }
+
+
+    return {
+      message: "Пароль был успешно сменён!"
+    }
+    
+  }
+
+  private async changeUserPassword(identifier:number, newPassword: string){
+    const hashedPassword = await bcrypt.hash(newPassword, jwtConstants.saltRounds);
+    const updatedUser = await this.dbService.user.update({
+      where:{ id: identifier},
+      data:{
+        password: hashedPassword
+      }
+    });
+
+    return updatedUser;
+  }
+
+  private async changeUserEmail(identifier:number, newEmail: string){
+    const updatedUser = await this.dbService.user.update({
+      where:{ id: identifier},
+      data:{
+        email: newEmail
+      }
+    });
+
+    return updatedUser;
+  }
+
+  async verifyResetTokenAndChangeUserEmail(dto: VerifyResetTokenChangeEmail2Dto){
+    const isValid = await this.verifyResetToken(dto.identifier, dto.resetToken);
+    if(!isValid){
+      throw new BadRequestException("Вы ввели неправильный resetToken");
+    }
+
+    const updatedUser = await this.changeUserEmail(parseInt(dto.identifier),dto.newEmail);
+    if(!updatedUser){
+      throw new InternalServerErrorException("Ошибка смены почты");
+    }
+
+
+    return {
+      message: "Почта была успешно сменена!"
+    }
+    
   }
 }
